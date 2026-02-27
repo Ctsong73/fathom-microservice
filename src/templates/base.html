@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Fathom - Stocks Analysis{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <span class="wave">🌊</span> Fathom
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/stock/C" class="nav-link">C</a>
+                <a href="/stock/XOM" class="nav-link">XOM</a>
+                <a href="/stock/NEM" class="nav-link">NEM</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>🌊 Fathom - Stocks Microservice | Tracking C, XOM, NEM | 6-month momentum analysis</p>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
