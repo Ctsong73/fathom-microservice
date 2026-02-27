@@ -108,29 +108,41 @@ def debug_db(symbol):
 
 @app.route('/debug/fetch/<symbol>')
 def debug_fetch(symbol):
-    """Deep debug for yfinance fetch with session"""
+    """Deep debug for yfinance and yahooquery fetch"""
     import yfinance as yf
+    from yahooquery import Ticker
     import requests
+    results = {'symbol': symbol}
+    
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    })
+
+    # Test yfinance
     try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        df = yf.download(symbol, period="1mo", progress=False, session=session)
-        return jsonify({
-            'symbol': symbol,
-            'is_empty': df.empty,
-            'columns': [str(c) for c in df.columns],
-            'index_type': str(type(df.index)),
-            'head': df.head().to_json() if not df.empty else None,
-            'yfinance_version': yf.__version__
-        })
+        df_yf = yf.download(symbol, period="1mo", progress=False, session=session)
+        results['yfinance'] = {
+            'is_empty': df_yf.empty,
+            'rows': len(df_yf),
+            'columns': list(df_yf.columns)
+        }
     except Exception as e:
-        import traceback
-        return jsonify({
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        results['yfinance_error'] = str(e)
+
+    # Test yahooquery
+    try:
+        t = Ticker(symbol, session=session)
+        df_yq = t.history(period="1mo")
+        results['yahooquery'] = {
+            'is_empty': df_yq.empty if hasattr(df_yq, 'empty') else True,
+            'rows': len(df_yq) if hasattr(df_yq, 'empty') else 0,
+            'type': str(type(df_yq))
+        }
+    except Exception as e:
+        results['yahooquery_error'] = str(e)
+
+    return jsonify(results)
 
 @app.route('/debug/routes')
 def debug_routes():

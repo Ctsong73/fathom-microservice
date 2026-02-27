@@ -1,12 +1,13 @@
 # src/fetcher.py
 import yfinance as yf
+from yahooquery import Ticker
 import requests
 from database import Database
 from cache import StockCache
 from datetime import datetime, timedelta
 import logging
 import time
-import random
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -16,24 +17,14 @@ class StockFetcher:
         self.cache = StockCache(ttl=3600)
         self.stocks = ['C', 'XOM', 'NEM']
         
-        # Create a session with a browser-like User-Agent
+        # Create a session for yfinance fallback
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
     
     def fetch_stock(self, symbol, force_refresh=False):
-        """Fetch stock data using yfinance download and a custom session"""
+        """Fetch stock data using yahooquery (primary) and yfinance (fallback)"""
         
         if not force_refresh:
             cached = self.cache.get_stock_data(symbol)
@@ -41,38 +32,63 @@ class StockFetcher:
                 logger.info(f"📦 Using cached data for {symbol}")
                 return cached.get('count', 0)
         
-        logger.info(f"🌐 FETCH START: {symbol} using yf.download with session...")
+        logger.info(f"🌐 FETCH START: {symbol} using yahooquery...")
         
         try:
-            # Use yf.download with the session for more robust bulk fetching
-            # Fetch 6 months of data
-            df = yf.download(
-                symbol, 
-                period="6mo", 
-                interval="1d", 
-                progress=False, 
-                session=self.session
-            )
+            # Try yahooquery first
+            t = Ticker(symbol, session=self.session)
+            df = t.history(period="6mo", interval="1d")
+            
+            # yahooquery returns a multi-index (symbol, date) if symbol passed as string
+            # or a single index if processed correctly. Let's process it.
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                logger.info(f"📊 FETCH SUCCESS (yahooquery): {symbol} returned {len(df)} rows")
+            else:
+                logger.warning(f"⚠️ yahooquery failed or returned empty for {symbol}. Trying yf.download fallback...")
+                df = yf.download(
+                    symbol, 
+                    period="6mo", 
+                    interval="1d", 
+                    progress=False, 
+                    session=self.session
+                )
             
             if df.empty:
-                logger.warning(f"⚠️ FETCH FAILED: No data returned for {symbol}")
+                logger.warning(f"❌ ALL FETCH METHODS FAILED for {symbol}")
                 return 0
-            
-            logger.info(f"📊 FETCH SUCCESS: {symbol} returned {len(df)} rows")
             
             # Prepare prices for database
             prices = []
-            for date, row in df.iterrows():
-                # Handle potential multi-index or single-index columns from yfinance
-                try:
-                    price = float(row['Close'])
-                    if price is not None and price > 0:
-                        date_str = date.strftime('%Y-%m-%d')
-                        prices.append((date_str, price))
-                except (KeyError, ValueError, TypeError) as e:
-                    continue
             
-            logger.info(f"🧹 DATA CLEANUP: {symbol} processed into {len(prices)} valid price points")
+            # yahooquery often has a MultiIndex (symbol, date)
+            # yfinance has a single DatetimeIndex
+            if isinstance(df.index, pd.MultiIndex):
+                # Reset index to get 'date' as a column
+                df_reset = df.reset_index()
+                # Find the date column (might be named 'date' or 'Date')
+                date_col = 'date' if 'date' in df_reset.columns else 'Date'
+                for _, row in df_reset.iterrows():
+                    try:
+                        price = float(row['close']) if 'close' in row else float(row['Close'])
+                        if price > 0:
+                            date_val = row[date_col]
+                            date_str = date_val.strftime('%Y-%m-%d') if hasattr(date_val, 'strftime') else str(date_val)[:10]
+                            prices.append((date_str, price))
+                    except: continue
+            else:
+                # Single index (likely yfinance or flattened yahooquery)
+                for date, row in df.iterrows():
+                    try:
+                        # Case insensitive check for Close
+                        close_col = next((c for c in df.columns if c.lower() == 'close'), None)
+                        if close_col:
+                            price = float(row[close_col])
+                            if price > 0:
+                                date_str = date.strftime('%Y-%m-%d')
+                                prices.append((date_str, price))
+                    except: continue
+            
+            logger.info(f"🧹 DATA CLEANUP: {symbol} processed into {len(prices)} valid points")
             
             if prices:
                 # Log a few samples for debugging
@@ -92,7 +108,6 @@ class StockFetcher:
                 logger.info(f"✅ SAVE COMPLETE: {len(prices)} days stored for {symbol}")
                 return len(prices)
             
-            logger.warning(f"⚠️ SAVE SKIPPED: No valid prices to save for {symbol}")
             return 0
             
         except Exception as e:
