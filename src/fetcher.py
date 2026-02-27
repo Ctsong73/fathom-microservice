@@ -1,5 +1,5 @@
 # src/fetcher.py
-import requests
+import yfinance as yf
 from database import Database
 from cache import StockCache
 from datetime import datetime, timedelta
@@ -14,13 +14,9 @@ class StockFetcher:
         self.db = Database()
         self.cache = StockCache(ttl=3600)
         self.stocks = ['C', 'XOM', 'NEM']
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
     
     def fetch_stock(self, symbol, force_refresh=False):
-        """Fetch stock data directly from Yahoo Finance API"""
+        """Fetch stock data using yfinance download"""
         
         if not force_refresh:
             cached = self.cache.get_stock_data(symbol)
@@ -28,40 +24,37 @@ class StockFetcher:
                 logger.info(f"📦 Using cached data for {symbol}")
                 return cached.get('count', 0)
         
-        logger.info(f"🌐 Fetching fresh data for {symbol} from Yahoo API...")
+        logger.info(f"🌐 FETCH START: {symbol} using yf.download...")
         
         try:
-            # Add delay to be respectful
-            time.sleep(random.uniform(1, 2))
+            # Use yf.download for more robust bulk fetching
+            # Fetch 6 months of data
+            df = yf.download(symbol, period="6mo", interval="1d", progress=False)
             
-            # Use the chart API which we know works
-            url = f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}'
-            response = self.session.get(url)
-            data = response.json()
-            
-            # Parse the response
-            if 'chart' not in data or 'result' not in data['chart'] or not data['chart']['result']:
-                logger.warning(f"No data for {symbol}")
+            if df.empty:
+                logger.warning(f"⚠️ FETCH FAILED: No data returned for {symbol}")
                 return 0
             
-            result = data['chart']['result'][0]
-            
-            # Get timestamps and prices
-            timestamps = result.get('timestamp', [])
-            quote = result.get('indicators', {}).get('quote', [{}])[0]
-            closes = quote.get('close', [])
+            logger.info(f"📊 FETCH SUCCESS: {symbol} returned {len(df)} rows")
             
             # Prepare prices for database
             prices = []
-            for i, ts in enumerate(timestamps):
-                if i < len(closes) and closes[i] is not None:
-                    date_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-                    prices.append((date_str, float(closes[i])))
+            for date, row in df.iterrows():
+                # Handle potential multi-index or single-index columns from yfinance
+                try:
+                    price = float(row['Close'])
+                    if price is not None and price > 0:
+                        date_str = date.strftime('%Y-%m-%d')
+                        prices.append((date_str, price))
+                except (KeyError, ValueError, TypeError) as e:
+                    continue
             
-            # Save last 180 days
-            prices = prices[-180:]
+            logger.info(f"🧹 DATA CLEANUP: {symbol} processed into {len(prices)} valid price points")
             
             if prices:
+                # Log a few samples for debugging
+                logger.info(f"📝 SAMPLE DATA ({symbol}): First: {prices[0]}, Last: {prices[-1]}")
+                
                 self.db.save_prices(symbol, prices)
                 self.db.cleanup_old_data()
                 
@@ -73,13 +66,14 @@ class StockFetcher:
                 self.cache.set_stock_data(symbol, result)
                 self.cache.invalidate_stock(symbol)
                 
-                logger.info(f"✅ Saved {len(prices)} days for {symbol}")
+                logger.info(f"✅ SAVE COMPLETE: {len(prices)} days stored for {symbol}")
                 return len(prices)
             
+            logger.warning(f"⚠️ SAVE SKIPPED: No valid prices to save for {symbol}")
             return 0
             
         except Exception as e:
-            logger.error(f"Error fetching {symbol}: {e}")
+            logger.error(f"❌ ERROR fetching {symbol}: {e}", exc_info=True)
             return 0
     
     def fetch_all(self, force_refresh=False):
