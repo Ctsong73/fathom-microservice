@@ -106,6 +106,32 @@ def debug_db(symbol):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/debug/fetch/<symbol>')
+def debug_fetch(symbol):
+    """Deep debug for yfinance fetch with session"""
+    import yfinance as yf
+    import requests
+    try:
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        df = yf.download(symbol, period="1mo", progress=False, session=session)
+        return jsonify({
+            'symbol': symbol,
+            'is_empty': df.empty,
+            'columns': [str(c) for c in df.columns],
+            'index_type': str(type(df.index)),
+            'head': df.head().to_json() if not df.empty else None,
+            'yfinance_version': yf.__version__
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 @app.route('/debug/routes')
 def debug_routes():
     """List all registered routes (helpful for debugging)"""

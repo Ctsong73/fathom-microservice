@@ -1,5 +1,6 @@
 # src/fetcher.py
 import yfinance as yf
+import requests
 from database import Database
 from cache import StockCache
 from datetime import datetime, timedelta
@@ -14,9 +15,25 @@ class StockFetcher:
         self.db = Database()
         self.cache = StockCache(ttl=3600)
         self.stocks = ['C', 'XOM', 'NEM']
+        
+        # Create a session with a browser-like User-Agent
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+        })
     
     def fetch_stock(self, symbol, force_refresh=False):
-        """Fetch stock data using yfinance download"""
+        """Fetch stock data using yfinance download and a custom session"""
         
         if not force_refresh:
             cached = self.cache.get_stock_data(symbol)
@@ -24,12 +41,18 @@ class StockFetcher:
                 logger.info(f"📦 Using cached data for {symbol}")
                 return cached.get('count', 0)
         
-        logger.info(f"🌐 FETCH START: {symbol} using yf.download...")
+        logger.info(f"🌐 FETCH START: {symbol} using yf.download with session...")
         
         try:
-            # Use yf.download for more robust bulk fetching
+            # Use yf.download with the session for more robust bulk fetching
             # Fetch 6 months of data
-            df = yf.download(symbol, period="6mo", interval="1d", progress=False)
+            df = yf.download(
+                symbol, 
+                period="6mo", 
+                interval="1d", 
+                progress=False, 
+                session=self.session
+            )
             
             if df.empty:
                 logger.warning(f"⚠️ FETCH FAILED: No data returned for {symbol}")
