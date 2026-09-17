@@ -32,9 +32,17 @@ class Database:
                 exchange TEXT,
                 country TEXT,
                 sector TEXT,
-                last_fetched TEXT
+                last_fetched TEXT,
+                market_cap REAL,
+                momentum_6m REAL
             )
         ''')
+
+        cols = [r[1] for r in cursor.execute('PRAGMA table_info(stocks)').fetchall()]
+        if 'market_cap' not in cols:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN market_cap REAL')
+        if 'momentum_6m' not in cols:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN momentum_6m REAL')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS daily_prices (
@@ -78,6 +86,26 @@ class Database:
         conn.execute(
             'UPDATE stocks SET last_fetched = ? WHERE symbol = ?',
             (datetime.now().isoformat(timespec='seconds'), symbol))
+        conn.commit()
+        conn.close()
+
+    def set_market_cap(self, symbol, value):
+        if value is None:
+            return
+        conn = self.get_connection()
+        conn.execute(
+            'UPDATE stocks SET market_cap = ? WHERE symbol = ?',
+            (value, symbol))
+        conn.commit()
+        conn.close()
+
+    def set_momentum(self, symbol, value):
+        if value is None:
+            return
+        conn = self.get_connection()
+        conn.execute(
+            'UPDATE stocks SET momentum_6m = ? WHERE symbol = ?',
+            (value, symbol))
         conn.commit()
         conn.close()
 

@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 UNIVERSE_CSV = os.environ.get('UNIVERSE_CSV', 'data/mining_stocks.csv')
 
+CHART_W, CHART_H, CHART_PAD = 800, 240, 16
+
 app = Flask(__name__)
 
 
@@ -36,13 +38,44 @@ fetcher = StockFetcher(db, [row[0] for row in universe])
 calculator = MomentumCalculator(db)
 
 
+def build_chart(prices):
+    """Build an SVG chart of the stored price history. Returns None if too little data."""
+    closes = [p[1] for p in prices]
+    if len(closes) < 2:
+        return None
+    low, high = min(closes), max(closes)
+    spread = (high - low) or 1.0
+    iw, ih = CHART_W - 2 * CHART_PAD, CHART_H - 2 * CHART_PAD
+    step = iw / (len(closes) - 1)
+
+    def xy(i, v):
+        return CHART_PAD + i * step, CHART_H - CHART_PAD - ((v - low) / spread) * ih
+
+    pts = [f"{x:.1f},{y:.1f}" for i, v in enumerate(closes) for x, y in [xy(i, v)]]
+    last_x, last_y = xy(len(closes) - 1, closes[-1])
+    low_x, low_y = xy(closes.index(low), low)
+    return {
+        'points': ' '.join(pts),
+        'area': (f"{CHART_PAD},{CHART_H - CHART_PAD} "
+                 f"{' '.join(pts)} {CHART_W - CHART_PAD:.1f},{CHART_H - CHART_PAD}"),
+        'high': f"{high:,.2f}",
+        'low': f"{low:,.2f}",
+        'low_x': low_x, 'low_y': min(low_y + 16, CHART_H - 8),
+        'last_x': last_x, 'last_y': last_y,
+        'range': f"{prices[0][0]}  →  {prices[-1][0]}",
+    }
+
+
 def boot_sync():
     """Background sync of stale stocks so the web server starts responding instantly."""
     logger.info(f"Background sync starting for {len(universe)} stocks...")
     try:
         results = fetcher.fetch_all()
         fresh = sum(1 for v in results.values() if v)
-        logger.info(f"Background sync done: {fresh}/{len(universe)} stocks with data")
+        caps = fetcher.refresh_metadata()
+        caps_stored = sum(1 for c in caps.values() if c)
+        logger.info(f"Background sync done: {fresh}/{len(universe)} stocks with data, "
+                    f"{caps_stored} market caps")
     except Exception as e:
         logger.error(f"Background sync failed: {e}")
 
@@ -57,9 +90,11 @@ def stock_detail(symbol):
     stock = db.get_stock(symbol)
     if not stock:
         return "Stock not found", 404
+    chart = build_chart(db.get_prices(symbol, days=180))
     return render_template('stock.html', symbol=stock['symbol'],
                            name=stock['name'], sector=stock['sector'],
-                           country=stock['country'], exchange=stock['exchange'])
+                           country=stock['country'], exchange=stock['exchange'],
+                           chart=chart)
 
 
 @app.route('/api/stocks/<symbol>/momentum')
@@ -85,7 +120,14 @@ def get_momentum(symbol):
             'country': stock['country'],
             'exchange': stock['exchange'],
         })
-        result['valuation'] = fetcher.get_valuation(symbol)
+        snapshot = fetcher.get_snapshot(symbol)
+        result['valuation'] = {k: snapshot[k] for k in ('pe', 'pb', 'ps')}
+        result['snapshot'] = {k: snapshot[k] for k in
+                              ('market_cap', 'week52_low', 'week52_high',
+                               'volume', 'avg_volume')}
+        db.set_momentum(symbol, result['momentum_6m'])
+        if snapshot.get('market_cap'):
+            db.set_market_cap(symbol, snapshot['market_cap'])
         return jsonify(result)
     except Exception as e:
         logger.exception(f"Error calculating momentum for {symbol}")

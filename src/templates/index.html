@@ -11,6 +11,28 @@
                autocomplete="off">
     </div>
 
+    <div class="directory-toolbar">
+        <div class="toolbar-controls">
+            <label>Sort
+                <select id="sortBy">
+                    <option value="sector">Sector</option>
+                    <option value="mcap">Market Cap</option>
+                    <option value="gainers">Gainers</option>
+                    <option value="losers">Losers</option>
+                    <option value="country">Country</option>
+                </select>
+            </label>
+            <label>Country
+                <select id="countryFilter">
+                    <option value="">All</option>
+                    {% for c in stocks|map(attribute='country')|unique|sort %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+    </div>
+
     <div id="stockDirectory">
         {% for sector, group in stocks|groupby('sector') %}
         <div class="sector-group" data-sector="{{ sector }}">
@@ -18,7 +40,12 @@
                 <span class="sector-count">{{ group|length }}</span></h2>
             <div class="stock-grid-wide">
                 {% for s in group %}
-                <a class="stock-card" href="/stock/{{ s.symbol }}">
+                <a class="stock-card" href="/stock/{{ s.symbol }}"
+                   data-symbol="{{ s.symbol }}" data-name="{{ s.name }}"
+                   data-sector="{{ s.sector }}" data-country="{{ s.country }}"
+                   data-exchange="{{ s.exchange }}"
+                   data-mcap="{{ s.market_cap if s.market_cap is not none else '' }}"
+                   data-momentum="{{ '%+.2f'|format(s.momentum_6m) if s.momentum_6m is not none else '' }}">
                     <div class="stock-symbol">{{ s.symbol }}</div>
                     <div class="stock-name">
                         <span class="stock-fullname">{{ s.name }}</span>
@@ -26,6 +53,11 @@
                             {{ s.country }} · {{ s.exchange }}
                         </span>
                     </div>
+                    {% if s.momentum_6m is not none %}
+                    <span class="stock-momentum {{ 'positive' if s.momentum_6m >= 0 else 'negative' }}">
+                        {{ '%+.2f'|format(s.momentum_6m) }}%
+                    </span>
+                    {% endif %}
                     <span class="stock-badge badge-sector">{{ s.sector }}</span>
                 </a>
                 {% endfor %}
@@ -37,20 +69,102 @@
 
 <script>
     const searchInput = document.getElementById('stockSearch');
-    const cards = Array.from(document.querySelectorAll('#stockDirectory .stock-card'));
-    const groups = Array.from(document.querySelectorAll('.sector-group'));
+    const sortSelect = document.getElementById('sortBy');
+    const countrySelect = document.getElementById('countryFilter');
+    const directory = document.getElementById('stockDirectory');
 
-    searchInput.addEventListener('input', () => {
+    const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+        ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
+    const fmtMoney = (v) => {
+        if (v == null) return '';
+        const a = Math.abs(v);
+        if (a >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+        if (a >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+        if (a >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+        if (a >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+        return '$' + v.toFixed(0);
+    };
+
+    function collectStocks() {
+        return Array.from(document.querySelectorAll('#stockDirectory .stock-card'))
+            .map(card => ({
+                symbol: card.dataset.symbol,
+                name: card.dataset.name,
+                sector: card.dataset.sector,
+                country: card.dataset.country,
+                exchange: card.dataset.exchange,
+                mcap: card.dataset.mcap ? parseFloat(card.dataset.mcap) : null,
+                momentum: card.dataset.momentum ? parseFloat(card.dataset.momentum) : null,
+            }));
+    }
+
+    function cardHTML(s) {
+        const meta = [s.country, s.exchange, fmtMoney(s.mcap)]
+            .filter(Boolean).join(' · ');
+        const mom = s.momentum != null
+            ? `<span class="stock-momentum ${s.momentum >= 0 ? 'positive' : 'negative'}">${s.momentum > 0 ? '+' : ''}${s.momentum.toFixed(2)}%</span>`
+            : '';
+        return `<a class="stock-card" href="/stock/${esc(s.symbol)}">
+            <div class="stock-symbol">${esc(s.symbol)}</div>
+            <div class="stock-name">
+                <span class="stock-fullname">${esc(s.name)}</span>
+                <span class="stock-meta">${esc(meta)}</span>
+            </div>
+            ${mom}
+            <span class="stock-badge badge-sector">${esc(s.sector)}</span>
+        </a>`;
+    }
+
+    function sortBy(list, key, desc) {
+        const mult = desc ? -1 : 1;
+        return [...list].sort((a, b) => {
+            const va = a[key], vb = b[key];
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            return (va < vb ? -1 : va > vb ? 1 : 0) * mult;
+        });
+    }
+
+    function render() {
+        let list = collectStocks();
         const q = (searchInput.value || '').trim().toLowerCase();
-        cards.forEach(card => {
-            const text = card.textContent.toLowerCase();
-            card.style.display = !q || text.includes(q) ? '' : 'none';
-        });
-        groups.forEach(g => {
-            const visible = Array.from(g.querySelectorAll('.stock-card'))
-                .some(c => c.style.display !== 'none');
-            g.style.display = visible ? '' : 'none';
-        });
-    });
+        if (q) {
+            list = list.filter(s =>
+                (s.symbol + ' ' + s.name + ' ' + s.sector + ' ' + s.country)
+                    .toLowerCase().includes(q));
+        }
+        const cf = countrySelect.value;
+        if (cf) list = list.filter(s => s.country === cf);
+
+        const mode = sortSelect.value;
+        if (mode === 'sector' || mode === 'country') {
+            const key = mode === 'sector' ? 'sector' : 'country';
+            const groups = new Map();
+            for (const s of sortBy(list, 'name')) {
+                const g = s[key];
+                if (!groups.has(g)) groups.set(g, []);
+                groups.get(g).push(s);
+            }
+            directory.innerHTML = [...groups.entries()].map(([g, items]) => `
+                <div class="sector-group" data-sector="${esc(g)}">
+                    <h2 class="sector-title">${esc(g)}
+                        <span class="sector-count">${items.length}</span></h2>
+                    <div class="stock-grid-wide">${items.map(cardHTML).join('')}</div>
+                </div>`).join('');
+        } else {
+            const desc = mode !== 'losers';
+            const key = mode === 'mcap' ? 'mcap' : 'momentum';
+            const items = sortBy(list, key, desc);
+            directory.innerHTML = `<div class="stock-grid-wide">${items.map(cardHTML).join('')}</div>`;
+        }
+    }
+
+    searchInput.addEventListener('input', render);
+    sortSelect.addEventListener('change', render);
+    countrySelect.addEventListener('change', render);
+
+    render();
 </script>
 {% endblock %}

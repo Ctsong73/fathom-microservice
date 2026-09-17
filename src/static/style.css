@@ -176,6 +176,51 @@ body {
     text-align: left;
 }
 
+.stock-momentum {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-right: 12px;
+    white-space: nowrap;
+}
+
+.directory-toolbar {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 24px;
+}
+
+.toolbar-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.toolbar-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.toolbar-controls select {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.toolbar-controls select option {
+    background: #1e293b;
+    color: white;
+}
+
 .stock-fullname {
     display: block;
     font-weight: 600;
@@ -317,6 +362,17 @@ body {
     max-width: 1200px;
     margin: 20px auto;
     padding: 20px;
+}
+
+.chart-card {
+    max-width: 1000px;
+    margin: 20px auto;
+}
+
+.price-chart {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .metric-card {

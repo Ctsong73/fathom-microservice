@@ -15,6 +15,28 @@
     </div>
 </div>
 
+{% if chart %}
+<div class="metric-card chart-card">
+    <div class="metric-title">📉 Price History</div>
+    <svg class="price-chart" viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#c98a4b" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#c98a4b" stop-opacity="0.0"/>
+            </linearGradient>
+        </defs>
+        <polygon points="{{ chart.area }}" fill="url(#areaGrad)"/>
+        <polyline points="{{ chart.points }}" fill="none" stroke="#c98a4b"
+                  stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="{{ chart.last_x }}" cy="{{ chart.last_y }}" r="4" fill="#c98a4b"/>
+        <text x="16" y="18" fill="rgba(255,255,255,0.65)" font-size="12">High ${{ chart.high }}</text>
+        <text x="{{ chart.low_x }}" y="{{ chart.low_y }}"
+              fill="rgba(255,255,255,0.65)" font-size="12">Low ${{ chart.low }}</text>
+        <text x="784" y="232" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="11">{{ chart.range }}</text>
+    </svg>
+</div>
+{% endif %}
+
 <div id="loading" class="loading">Loading analysis...</div>
 
 <div id="metricsContainer" style="display: none;">
@@ -33,6 +55,25 @@
     const sign = (v) => v === 0 || v == null || isNaN(v) ? 'N/A' :
         `${v > 0 ? '+' : ''}${v}${'%'}`;
     const cls = (v) => v > 0 ? 'positive' : (v < 0 ? 'negative' : '');
+    const fmtMoney = (v) => {
+        if (v == null || isNaN(v)) return 'N/A';
+        const a = Math.abs(v);
+        if (a >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+        if (a >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+        if (a >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+        if (a >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+        return '$' + v.toFixed(0);
+    };
+    const fmtNum = (v) => {
+        if (v == null || isNaN(v)) return 'N/A';
+        const a = Math.abs(v);
+        if (a >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+        if (a >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+        if (a >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+        return String(v);
+    };
+    const val = (d, k) => (d && d[k] != null ? d[k] : null);
+    const valText = (v, prec = 2) => (v != null ? v.toFixed(prec) : 'N/A');
 
     async function fetchData() {
         const loader = document.getElementById('loading');
@@ -114,6 +155,24 @@
                 <div class="metric-row">
                     <span class="metric-label">P/S Ratio:</span>
                     <span class="metric-value">${d.valuation && d.valuation.ps != null ? d.valuation.ps.toFixed(2) : 'N/A'}</span>
+                </div>
+                <div class="metric-card">
+                <div class="metric-title">💎 Snapshot</div>
+                <div class="metric-row">
+                    <span class="metric-label">Market Cap:</span>
+                    <span class="metric-value">${fmtMoney(val(d.snapshot, 'market_cap'))}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">52-Week Range:</span>
+                    <span class="metric-value">${val(d.snapshot, 'week52_low') != null && val(d.snapshot, 'week52_high') != null ? `$${valText(val(d.snapshot, 'week52_low'))} – $${valText(val(d.snapshot, 'week52_high'))}` : 'N/A'}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Volume:</span>
+                    <span class="metric-value">${fmtNum(val(d.snapshot, 'volume'))}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Avg Volume:</span>
+                    <span class="metric-value">${fmtNum(val(d.snapshot, 'avg_volume'))}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">Last Close Date:</span>

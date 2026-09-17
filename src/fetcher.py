@@ -7,6 +7,7 @@ import os
 import threading
 import time
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +91,38 @@ class StockFetcher:
 
         self.db.save_prices(symbol, prices)
         self.db.set_last_fetched(symbol)
+        self._update_momentum(symbol)
         logger.info(f"SAVED {len(prices)} days for {symbol}")
         return len(prices)
+
+    def _update_momentum(self, symbol):
+        """Recompute and store the 6-month momentum % from stored closes."""
+        closes = [p[1] for p in self.db.get_prices(symbol, days=180)]
+        if len(closes) >= 2:
+            m6 = (closes[-1] / closes[0] - 1) * 100
+            self.db.set_momentum(symbol, round(m6, 2))
+
+    def refresh_metadata(self, stocks=None):
+        """Refresh market caps for the universe (parallel, light quote calls)."""
+        stocks = stocks or self.stocks
+        results = {}
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            futures = {executor.submit(self._market_cap_one, s): s for s in stocks}
+            for future in as_completed(futures):
+                symbol = futures[future]
+                try:
+                    results[symbol] = future.result()
+                except Exception as e:
+                    logger.warning(f"Metadata failed for {symbol}: {e}")
+                    results[symbol] = None
+        return results
+
+    def _market_cap_one(self, symbol):
+        cap = yf.Ticker(symbol).fast_info.get('market_cap')
+        if cap:
+            self.db.set_market_cap(symbol, float(cap))
+            return float(cap)
+        return None
 
     def fetch_all(self, force_refresh=False):
         """Sweep the universe. Skips symbols fetched recently unless forced."""
@@ -104,8 +135,8 @@ class StockFetcher:
             time.sleep(REQUEST_DELAY)
         return results
 
-    def get_valuation(self, symbol):
-        """Pull P/E, P/B and P/S ratios from Yahoo. Falls back to nulls."""
+    def get_snapshot(self, symbol):
+        """Pull valuation ratios + market cap / 52wk range / volume from Yahoo."""
         # yfinance 1.2 requires its own curl_cffi session; don't pass ours.
         def num(v):
             try:
@@ -114,25 +145,39 @@ class StockFetcher:
             except (TypeError, ValueError):
                 return None
 
-        # Yahoo throttles the valuation endpoint right after boot sync, so
+        empty = {'pe': None, 'pb': None, 'ps': None,
+                 'market_cap': None, 'week52_low': None, 'week52_high': None,
+                 'volume': None, 'avg_volume': None}
+
+        # Yahoo throttles the snapshot endpoint right after boot sync, so
         # back off a little between attempts instead of giving up instantly.
         for attempt in range(VALUATION_RETRIES):
             try:
                 info = yf.Ticker(symbol).info or {}
             except Exception as e:
-                logger.warning(f"Valuation failed for {symbol} (try {attempt + 1}): {e}")
+                logger.warning(f"Snapshot failed for {symbol} (try {attempt + 1}): {e}")
                 if attempt < VALUATION_RETRIES - 1:
                     time.sleep(2)
                 continue
             pe = num(info.get('trailingPE') or info.get('forwardPE'))
             pb = num(info.get('priceToBook'))
             ps = num(info.get('priceToSalesTrailing12Months'))
-            if pe is not None or pb is not None or ps is not None:
-                return {'pe': pe, 'pb': pb, 'ps': ps}
+            market_cap = num(info.get('marketCap'))
+            week52_low = num(info.get('fiftyTwoWeekLow'))
+            week52_high = num(info.get('fiftyTwoWeekHigh'))
+            volume = num(info.get('regularMarketVolume'))
+            avg_volume = (num(info.get('averageVolume'))
+                          or num(info.get('averageDailyVolume3Month')))
+            snap = {'pe': pe, 'pb': pb, 'ps': ps,
+                    'market_cap': market_cap,
+                    'week52_low': week52_low, 'week52_high': week52_high,
+                    'volume': volume, 'avg_volume': avg_volume}
+            if any(v is not None for v in snap.values()):
+                return snap
             if attempt < VALUATION_RETRIES - 1:
                 time.sleep(2)
-        logger.warning(f"Valuation unavailable for {symbol}")
-        return {'pe': None, 'pb': None, 'ps': None}
+        logger.warning(f"Snapshot unavailable for {symbol}")
+        return empty
 
     def debug_valuation(self, symbol):
         """Diagnose what Yahoo actually returns for valuation (debug only)."""
