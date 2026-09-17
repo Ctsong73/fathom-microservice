@@ -85,6 +85,7 @@ def get_momentum(symbol):
             'country': stock['country'],
             'exchange': stock['exchange'],
         })
+        result['valuation'] = fetcher.get_valuation(symbol)
         return jsonify(result)
     except Exception as e:
         logger.exception(f"Error calculating momentum for {symbol}")

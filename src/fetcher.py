@@ -102,3 +102,24 @@ class StockFetcher:
                 results[symbol] = self.db.count_prices(symbol)
             time.sleep(REQUEST_DELAY)
         return results
+
+    def get_valuation(self, symbol):
+        """Pull P/E, P/B and P/S ratios from Yahoo. Falls back to nulls."""
+        try:
+            # yfinance 1.2 requires its own curl_cffi session; don't pass ours.
+            info = yf.Ticker(symbol).info or {}
+        except Exception as e:
+            logger.warning(f"Valuation failed for {symbol}: {e}")
+            return {'pe': None, 'pb': None, 'ps': None}
+
+        def num(v):
+            try:
+                v = float(v)
+                return round(v, 2) if v == v else None  # drop NaN
+            except (TypeError, ValueError):
+                return None
+
+        pe = num(info.get('trailingPE') or info.get('forwardPE'))
+        pb = num(info.get('priceToBook'))
+        ps = num(info.get('priceToSalesTrailing12Months'))
+        return {'pe': pe, 'pb': pb, 'ps': ps}
