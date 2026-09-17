@@ -1,82 +1,76 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fathom - Stocks Microservice</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
-            background-attachment: fixed;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+{% block title %}Fathom - Mining Stocks{% endblock %}
 
-        .container {
-            text-align: center;
-            padding: 40px;
-            max-width: 500px;
-        }
+{% block content %}
+<div class="home-container">
+    <h1 class="home-title">🌊 Fathom</h1>
+    <p class="home-subtitle">Mining Stocks — US & Canada</p>
 
-        h1 {
-            font-size: 4rem;
-            color: white;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            font-size: 1.5rem;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 40px;
-        }
-
-        .stock-btn {
-            display: block;
-            background: white;
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 10px;
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-            font-size: 1.2rem;
-            transition: transform 0.2s;
-        }
-
-        .stock-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .btn-c {
-            border-left: 5px solid #4CAF50;
-        }
-
-        .btn-xom {
-            border-left: 5px solid #2196F3;
-        }
-
-        .btn-nem {
-            border-left: 5px solid #FF9800;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <h1>🌊 Fathom</h1>
-        <div class="subtitle">Stocks Microservice</div>
-
-        <a href="/stock/C" class="stock-btn btn-c">C - Citigroup Inc.</a>
-        <a href="/stock/XOM" class="stock-btn btn-xom">XOM - Exxon Mobil</a>
-        <a href="/stock/NEM" class="stock-btn btn-nem">NEM - Newmont Corp.</a>
+    <div class="search-box">
+        <input type="text" id="stockSearch" placeholder="Search by symbol or name…"
+               autocomplete="off">
     </div>
-</body>
 
-</html>
+    <div class="stock-count" id="stockCount"></div>
+
+    <div id="stockDirectory">
+        {% for sector, group in stocks|groupby('sector') %}
+        <div class="sector-group" data-sector="{{ sector }}">
+            <h2 class="sector-title">{{ sector }}
+                <span class="sector-count">{{ group|length }}</span></h2>
+            <div class="stock-grid-wide">
+                {% for s in group %}
+                <a class="stock-card" href="/stock/{{ s.symbol }}">
+                    <div class="stock-symbol">{{ s.symbol }}</div>
+                    <div class="stock-name">
+                        <span class="stock-fullname">{{ s.name }}</span>
+                        <span class="stock-meta">
+                            {{ s.country }} · {{ s.exchange }}
+                        </span>
+                    </div>
+                    <span class="stock-badge badge-sector">{{ s.sector }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('stockSearch');
+    const stockCount = document.getElementById('stockCount');
+    const cards = Array.from(document.querySelectorAll('#stockDirectory .stock-card'));
+    const groups = Array.from(document.querySelectorAll('.sector-group'));
+    const total = cards.length;
+
+    function updateCount() {
+        const visible = cards.filter(c => c.style.display !== 'none').length;
+        stockCount.textContent = visible === total
+            ? `${total} stocks`
+            : `${visible} / ${total} stocks`;
+    }
+
+    searchInput.addEventListener('input', () => {
+        const q = (searchInput.value || '').trim().toLowerCase();
+        let anyVisible = false;
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            const show = !q || text.includes(q);
+            card.style.display = show ? '' : 'none';
+            if (show) anyVisible = true;
+        });
+        groups.forEach(g => {
+            g.style.display = Array.from(g.querySelectorAll('.stock-card'))
+                .some(c => c.style.display !== 'none') ? '' : 'none';
+        });
+        if (!q) {
+            groups.forEach(g => g.style.display = '');
+        }
+        updateCount();
+    });
+
+    updateCount();
+</script>
+{% endblock %}

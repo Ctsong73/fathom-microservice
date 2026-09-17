@@ -1,100 +1,126 @@
+import csv
+import logging
+import os
+import threading
+from collections import defaultdict
+
 from flask import Flask, render_template, jsonify
-from fetcher import StockFetcher
+
+from fetcher import StockFetcher, STALE_HOURS
 from models import MomentumCalculator
 from database import Database
-from cache import StockCache
-import os
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+UNIVERSE_CSV = os.environ.get('UNIVERSE_CSV', 'data/mining_stocks.csv')
 
 app = Flask(__name__)
-fetcher = StockFetcher()
-calculator = MomentumCalculator()
+
+
+def load_universe():
+    """Read the mining universe CSV -> list of (symbol, name, exchange, country, sector)."""
+    if not os.path.exists(UNIVERSE_CSV):
+        logger.warning(f"Universe file not found: {UNIVERSE_CSV}")
+        return []
+    with open(UNIVERSE_CSV, newline='') as f:
+        return [
+            (r['symbol'], r['name'], r['exchange'], r['country'], r['sector'])
+            for r in csv.DictReader(f)
+        ]
+
+
+universe = load_universe()
 db = Database()
-cache = StockCache()
+fetcher = StockFetcher(db, [row[0] for row in universe])
+calculator = MomentumCalculator(db)
+
+
+def boot_sync():
+    """Background sync of stale stocks so the web server starts responding instantly."""
+    logger.info(f"Background sync starting for {len(universe)} stocks...")
+    try:
+        results = fetcher.fetch_all()
+        fresh = sum(1 for v in results.values() if v)
+        logger.info(f"Background sync done: {fresh}/{len(universe)} stocks with data")
+    except Exception as e:
+        logger.error(f"Background sync failed: {e}")
+
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html', stocks=db.get_stocks())
+
 
 @app.route('/stock/<symbol>')
 def stock_detail(symbol):
-    if symbol not in ['C', 'XOM', 'NEM']:
+    stock = db.get_stock(symbol)
+    if not stock:
         return "Stock not found", 404
-    return render_template('stock.html', symbol=symbol)
+    return render_template('stock.html', symbol=stock['symbol'],
+                           name=stock['name'], sector=stock['sector'],
+                           country=stock['country'], exchange=stock['exchange'])
+
 
 @app.route('/api/stocks/<symbol>/momentum')
 def get_momentum(symbol):
-    """Get momentum data for a specific stock"""
+    """Momentum analysis for a single stock, refreshing stale data first."""
+    stock = db.get_stock(symbol)
+    if not stock:
+        return jsonify({'error': f'Unknown symbol: {symbol}'}), 404
     try:
-        # Get the momentum data from calculator
+        if db.is_stale(symbol, STALE_HOURS):
+            logger.info(f"Refreshing stale data for {symbol}")
+            fetcher.fetch_stock(symbol, force_refresh=True)
+
         result = calculator.get_momentum(symbol)
-        
-        if not result or result.get('current_price') == 0:
-            # Fetch additional data if needed
-            from fetcher import StockFetcher
-            fetcher = StockFetcher()
-            count = fetcher.fetch_stock(symbol)
-            
-            # If we fetched new data, recalculate momentum
-            if count > 0:
-                result = calculator.get_momentum(symbol)
-        
+
+        if result['current_price'] == 0:
+            fetcher.fetch_stock(symbol, force_refresh=True)
+            result = calculator.get_momentum(symbol)
+
+        result.update({
+            'name': stock['name'],
+            'sector': stock['sector'],
+            'country': stock['country'],
+            'exchange': stock['exchange'],
+        })
         return jsonify(result)
-        
     except Exception as e:
+        logger.exception(f"Error calculating momentum for {symbol}")
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/fetch/<symbol>')
 def fetch_stock(symbol):
-    """Fetch and store stock data"""
-    count = fetcher.fetch_stock(symbol)
+    """Fetch and store data for a single symbol."""
+    if not db.get_stock(symbol):
+        return jsonify({'error': f'Unknown symbol: {symbol}'}), 404
+    count = fetcher.fetch_stock(symbol, force_refresh=True)
     return jsonify({'symbol': symbol, 'records': count})
+
 
 @app.route('/api/fetch/all')
 def fetch_all():
-    """Fetch and store all stocks data"""
-    results = fetcher.fetch_all()
-    return jsonify(results)
-
-# Cache management endpoints
-@app.route('/api/cache/stats')
-def cache_stats():
-    """Get cache statistics"""
-    return jsonify(cache.get_cache_stats())
-
-@app.route('/api/cache/clear/<symbol>')
-def cache_clear(symbol):
-    """Clear cache for a specific stock"""
-    cache.invalidate_stock(symbol)
-    return jsonify({'message': f'Cache cleared for {symbol}'})
-
-@app.route('/api/cache/clear/all')
-def cache_clear_all():
-    """Clear all cache"""
-    for symbol in ['C', 'XOM', 'NEM']:
-        cache.invalidate_stock(symbol)
-    return jsonify({'message': 'All cache cleared'})
-
-@app.route('/api/fetch/refresh/<symbol>')
-def fetch_refresh(symbol):
-    """Force refresh data for a stock (bypass cache)"""
-    count = fetcher.fetch_stock(symbol, force_refresh=True)
-    return jsonify({'symbol': symbol, 'records': count, 'refreshed': True})
-
-@app.route('/api/fetch/refresh/all')
-def fetch_refresh_all():
-    """Force refresh all stocks"""
+    """Refresh every stock in the universe (blocking; can take a while)."""
     results = fetcher.fetch_all(force_refresh=True)
-    return jsonify({'message': 'All stocks refreshed', 'results': results})
+    return jsonify({'results': results})
 
-# Health check endpoint (useful for Render)
+
 @app.route('/health')
 def health():
-    return jsonify({'status': 'healthy', 'stocks': ['C', 'XOM', 'NEM']})
+    stocks = db.get_stocks()
+    return jsonify({
+        'status': 'healthy',
+        'universe_size': len(universe),
+        'stocks_with_data': sum(1 for s in stocks
+                                if db.count_prices(s['symbol']) > 0),
+    })
 
-# Debug endpoint to check routes
+
 @app.route('/debug/db/<symbol>')
 def debug_db(symbol):
-    """View raw price data in DB for debugging"""
+    """View raw price data in DB for debugging."""
     try:
         prices = db.get_prices(symbol, days=365)
         return jsonify({
@@ -106,74 +132,44 @@ def debug_db(symbol):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/debug/fetch/<symbol>')
-def debug_fetch(symbol):
-    """Deep debug for yfinance and yahooquery fetch"""
-    import yfinance as yf
-    from yahooquery import Ticker
-    import requests
-    results = {'symbol': symbol}
-    
-    session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    })
-
-    # Test yfinance
-    try:
-        df_yf = yf.download(symbol, period="1mo", progress=False, session=session)
-        results['yfinance'] = {
-            'is_empty': df_yf.empty,
-            'rows': len(df_yf),
-            'columns': list(df_yf.columns)
-        }
-    except Exception as e:
-        results['yfinance_error'] = str(e)
-
-    # Test yahooquery
-    try:
-        t = Ticker(symbol, session=session)
-        df_yq = t.history(period="1mo")
-        results['yahooquery'] = {
-            'is_empty': df_yq.empty if hasattr(df_yq, 'empty') else True,
-            'rows': len(df_yq) if hasattr(df_yq, 'empty') else 0,
-            'type': str(type(df_yq))
-        }
-    except Exception as e:
-        results['yahooquery_error'] = str(e)
-
-    return jsonify(results)
 
 @app.route('/debug/routes')
 def debug_routes():
-    """List all registered routes (helpful for debugging)"""
+    """List all registered routes."""
     import urllib
     routes = []
     for rule in app.url_map.iter_rules():
-        routes.append({
-            'endpoint': rule.endpoint,
-            'url': urllib.parse.unquote(rule.rule),
-            'methods': list(rule.methods)
-        })
+        if rule.endpoint != 'static':
+            routes.append({
+                'endpoint': rule.endpoint,
+                'url': urllib.parse.unquote(rule.rule),
+                'methods': list(rule.methods)
+            })
     return jsonify(routes)
 
+
+@app.route('/debug/universe')
+def debug_universe():
+    """List the tracked mining universe, grouped by sector."""
+    grouped = defaultdict(list)
+    for s in db.get_stocks():
+        grouped[s['sector']].append({
+            'symbol': s['symbol'],
+            'name': s['name'],
+            'country': s['country'],
+            'exchange': s['exchange'],
+        })
+    return jsonify(dict(grouped))
+
+
 if __name__ == '__main__':
-    print("🌊 Fathom Microservice Starting...")
-    print("Stocks: C, XOM, NEM")
-    
-    # Fetch initial data
-    with app.app_context():
-        print("Fetching initial data...")
-        try:
-            fetcher.fetch_all()
-            print("✅ Initial data fetched successfully")
-        except Exception as e:
-            print(f"⚠️ Error fetching initial data: {e}")
-    
-    # Get port from environment variable (for Render)
+    print(f"Fathom Microservice starting - {len(universe)} mining stocks")
+
+    db.sync_universe(universe)
+
+    # Start background data sync without blocking the web server
+    threading.Thread(target=boot_sync, daemon=True).start()
+
     port = int(os.environ.get('PORT', 5000))
-    
-    # In production, debug should be False
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
-    
     app.run(host='0.0.0.0', port=port, debug=debug_mode)

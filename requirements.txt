@@ -5,5 +5,4 @@ numpy==1.24.3
 yfinance>=0.2.40
 yahooquery>=2.3.7
 python-dotenv==1.0.0
-redis==5.0.1
 

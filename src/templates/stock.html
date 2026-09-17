@@ -6,15 +6,8 @@
 <div class="stock-header">
     <div class="stock-title">
         <h1>{{ symbol }}</h1>
-        <p>
-            {% if symbol == 'C' %}
-            Citigroup Inc. • Financial
-            {% elif symbol == 'XOM' %}
-            Exxon Mobil • Energy
-            {% elif symbol == 'NEM' %}
-            Newmont Corp. • Materials
-            {% endif %}
-        </p>
+        <p>{{ name }}</p>
+        <p class="stock-meta">{{ sector }} · {{ country }} · {{ exchange }}</p>
     </div>
     <div class="current-price" id="priceDisplay">
         <div class="price-label">Loading price...</div>
@@ -28,105 +21,118 @@
     <div class="metrics-grid" id="metricsGrid"></div>
 
     <div class="action-buttons">
-        <button class="btn btn-primary" onclick="fetchData()">🔄 Refresh Data</button>
-        <a href="/" class="btn btn-secondary">← Back to Stocks</a>
+        <button class="btn btn-primary" id="refreshBtn" onclick="refresh()">🔄 Refresh Data</button>
+        <a href="/" class="btn btn-secondary">← All Stocks</a>
     </div>
 </div>
 
 <script>
     const symbol = '{{ symbol }}';
 
+    const fmt = (v, suffix = '') => `${v}${suffix}`;
+    const sign = (v) => v === 0 || v == null || isNaN(v) ? 'N/A' :
+        `${v > 0 ? '+' : ''}${v}${'%'}`;
+    const cls = (v) => v > 0 ? 'positive' : (v < 0 ? 'negative' : '');
+
     async function fetchData() {
-        const loading = document.getElementById('loading');
+        const loader = document.getElementById('loading');
         const container = document.getElementById('metricsContainer');
         const priceDisplay = document.getElementById('priceDisplay');
 
-        loading.style.display = 'block';
+        loader.style.display = 'block';
         container.style.display = 'none';
 
         try {
-            const response = await fetch(`/api/stocks/${symbol}/momentum`);
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
+            const res = await fetch(`/api/stocks/${symbol}/momentum`);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
             displayData(data);
-            loading.style.display = 'none';
+            loader.style.display = 'none';
             container.style.display = 'block';
-        } catch (error) {
-            loading.innerHTML = `Error: ${error.message}`;
+        } catch (err) {
+            loader.innerHTML = `Error: ${err.message}`;
         }
     }
 
-    function displayData(data) {
-        // Update price display
+    function displayData(d) {
         document.getElementById('priceDisplay').innerHTML = `
             <div class="price-label">Current Price</div>
-            <div class="price-value">$${data.current_price}</div>
+            <div class="price-value">$${d.current_price.toFixed(2)}</div>
         `;
 
-        const momentumClass = data.momentum_6m >= 0 ? 'positive' : 'negative';
-        const momentumSign = data.momentum_6m >= 0 ? '+' : '';
-
-        // Metrics grid
         document.getElementById('metricsGrid').innerHTML = `
             <div class="metric-card">
                 <div class="metric-title">📊 Momentum</div>
                 <div class="metric-row">
                     <span class="metric-label">6-Month:</span>
-                    <span class="metric-value ${momentumClass}">${momentumSign}${data.momentum_6m}%</span>
+                    <span class="metric-value ${cls(d.momentum_6m)}">${sign(d.momentum_6m)}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">3-Month:</span>
-                    <span class="metric-value">${data.momentum_3m ? data.momentum_3m + '%' : 'N/A'}</span>
+                    <span class="metric-value ${cls(d.momentum_3m)}">${sign(d.momentum_3m)}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">1-Month:</span>
-                    <span class="metric-value">${data.momentum_1m ? data.momentum_1m + '%' : 'N/A'}</span>
+                    <span class="metric-value ${cls(d.momentum_1m)}">${sign(d.momentum_1m)}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Trend Strength:</span>
+                    <span class="metric-value">${d.trend_strength}%</span>
                 </div>
             </div>
-            
+
             <div class="metric-card">
                 <div class="metric-title">📈 Price Levels</div>
                 <div class="metric-row">
                     <span class="metric-label">Current:</span>
-                    <span class="metric-value">$${data.current_price}</span>
+                    <span class="metric-value">$${d.current_price.toFixed(2)}</span>
                 </div>
                 <div class="metric-row">
-                    <span class="metric-label">6 Months Ago:</span>
-                    <span class="metric-value">$${data.price_6mo_ago}</span>
+                    <span class="metric-label">~6 Months Ago:</span>
+                    <span class="metric-value">$${d.price_6mo_ago.toFixed(2)}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">SMA 20:</span>
-                    <span class="metric-value">$${data.sma_20 || 'N/A'}</span>
+                    <span class="metric-value">${d.sma_20 ? '$' + d.sma_20.toFixed(2) : 'N/A'}</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">SMA 50:</span>
-                    <span class="metric-value">$${data.sma_50 || 'N/A'}</span>
+                    <span class="metric-value">${d.sma_50 ? '$' + d.sma_50.toFixed(2) : 'N/A'}</span>
                 </div>
             </div>
-            
+
             <div class="metric-card">
-                <div class="metric-title">📉 Risk</div>
+                <div class="metric-title">📉 Risk & Data</div>
                 <div class="metric-row">
-                    <span class="metric-label">Volatility:</span>
-                    <span class="metric-value">${data.volatility}%</span>
-                </div>
-                <div class="metric-row">
-                    <span class="metric-label">Trend Strength:</span>
-                    <span class="metric-value">${data.trend_strength}%</span>
+                    <span class="metric-label">Volatility (ann.):</span>
+                    <span class="metric-value">${d.volatility}%</span>
                 </div>
                 <div class="metric-row">
                     <span class="metric-label">Data Points:</span>
-                    <span class="metric-value">${data.data_points} days</span>
+                    <span class="metric-value">${d.data_points} days</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Last Close Date:</span>
+                    <span class="metric-value">${d.last_date || 'N/A'}</span>
                 </div>
             </div>
         `;
     }
 
-    // Load data on page load
+    async function refresh() {
+        const btn = document.getElementById('refreshBtn');
+        btn.disabled = true;
+        btn.textContent = 'Refreshing…';
+        try {
+            await fetch(`/api/fetch/${symbol}`);
+        } catch (e) {
+            // best effort; momentum call below will surface errors
+        }
+        btn.disabled = false;
+        btn.textContent = '🔄 Refresh Data';
+        fetchData();
+    }
+
     fetchData();
 </script>
 {% endblock %}

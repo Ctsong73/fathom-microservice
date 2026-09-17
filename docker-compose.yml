@@ -8,20 +8,5 @@ services:
     volumes:
       # Mount the entire src directory for development
       - ./src:/app/src
-      # Persistent data
+      # Persistent data (SQLite db + universe csv)
       - ./data:/app/data
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      - redis
-
-  redis:
-    image: "redis:alpine"
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  redis_data:

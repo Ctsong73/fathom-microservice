@@ -1,0 +1,123 @@
+symbol,name,exchange,country,sector
+BHP,BHP Group,NYSE,Australia,Diversified
+VALE,Vale,NYSE,Brazil,Iron / Steel Ore
+CS.TO,Capstone Copper,TSX,Canada,Copper
+ERO.TO,Ero Copper,TSX,Canada,Copper
+FM.TO,First Quantum Minerals,TSX,Canada,Copper
+HBM.TO,Hudbay Minerals,TSX,Canada,Copper
+IVN.TO,Ivanhoe Mines,TSX,Canada,Copper
+LUN.TO,Lundin Mining,TSX,Canada,Copper
+NCU.TO,Nevada Copper,TSX,Canada,Copper
+SLS,Solaris Resources,NYSE,Canada,Copper
+TECK,Teck Resources,NYSE,Canada,Copper
+TKO.TO,Taseko Mines,TSX,Canada,Copper
+HBM,Hudbay Minerals Inc. Ordinary Shares (Canada),NYSE,Canada,Diversified
+ABX.TO,Barrick Gold,TSX,Canada,Gold
+AEM.TO,Agnico Eagle Mines,TSX,Canada,Gold
+AGI.TO,Alamos Gold,TSX,Canada,Gold
+ARTG.V,Artemis Gold,TSXV,Canada,Gold
+BTG,B2Gold (ADR),NYSE,Canada,Gold
+BTO.TO,B2Gold,TSX,Canada,Gold
+CG.TO,Centerra Gold,TSX,Canada,Gold
+DPM.TO,Dundee Precious Metals,TSX,Canada,Gold
+EDV.TO,Endeavour Mining,TSX,Canada,Gold
+ELD.TO,Eldorado Gold,TSX,Canada,Gold
+EQX.TO,Equinox Gold,TSX,Canada,Gold
+FNV.TO,Franco-Nevada,TSX,Canada,Gold
+GOLD,Barrick Gold (ADR),NYSE,Canada,Gold
+IAG,IAMGOLD,NYSE,Canada,Gold
+IMG.TO,IAMGOLD,TSX,Canada,Gold
+K.TO,Kinross Gold,TSX,Canada,Gold
+KNT.TO,K92 Mining,TSX,Canada,Gold
+LUG.TO,Lundin Gold,TSX,Canada,Gold
+NG.TO,NovaGold Resources,TSX,Canada,Gold
+OGC.TO,OceanaGold,TSX,Canada,Gold
+OLA.TO,Orla Mining,TSX,Canada,Gold
+ORE.TO,Orezone Gold,TSX,Canada,Gold
+SSRM,SSR Mining,NASDAQ,Canada,Gold
+TXG.TO,Torex Gold Resources,TSX,Canada,Gold
+WDO.TO,Wesdome Gold Mines,TSX,Canada,Gold
+WPM,Wheaton Precious Metals Corp Common Shares (Canada),NYSE,Canada,Gold
+WPM.TO,Wheaton Precious Metals,TSX,Canada,Gold
+CIA.TO,Champion Iron,TSX,Canada,Iron / Steel Ore
+LAC,Lithium Americas,NYSE,Canada,Lithium
+S.TO,Sherritt International,TSX,Canada,Nickel / Cobalt
+NTR.TO,Nutrien,TSX,Canada,Potash
+AG,First Majestic Silver,NYSE,Canada,Silver
+ASM,Avino Silver & Gold,NYSE,Canada,Silver
+DSV.TO,Discovery Silver,TSX,Canada,Silver
+EDR.TO,Endeavour Silver,TSX,Canada,Silver
+EXK,Endeavour Silver,NYSE,Canada,Silver
+FVI.TO,Fortuna Mining,TSX,Canada,Silver
+PAAS,Pan American Silver,NASDAQ,Canada,Silver
+PAAS.TO,Pan American Silver,TSX,Canada,Silver
+SVM,Silvercorp Metals,NYSE,Canada,Silver
+CCJ,Cameco (ADR),NYSE,Canada,Uranium
+CCO.TO,Cameco,TSX,Canada,Uranium
+DML.TO,Denison Mines,TSX,Canada,Uranium
+GLO.TO,Global Atomic,TSX,Canada,Uranium
+ISO.TO,IsoEnergy,TSX,Canada,Uranium
+NXE,NexGen Energy,NYSE,Canada,Uranium
+SQM,Sociedad Quimica y Minera,NYSE,Chile,Lithium
+SCCO,Southern Copper,NYSE,Mexico,Copper
+AU,AngloGold Ashanti,NYSE,South Africa,Gold
+GFI,Gold Fields,NYSE,South Africa,Gold
+HMY,Harmony Gold,NYSE,South Africa,Gold
+RIO,Rio Tinto,NYSE,UK,Diversified
+AA,Alcoa,NYSE,USA,Aluminum
+BTU,Peabody Energy,NYSE,USA,Coal
+HCC,Warrior Met Coal,NYSE,USA,Coal
+HNRG,Hallador Energy,NASDAQ,USA,Coal
+ERO,Ero Copper Corp. Common Shares,NYSE,USA,Copper
+FCX,Freeport-McMoRan,NYSE,USA,Copper
+AEM,Agnico Eagle Mines Limited Common Stock,NYSE,USA,Diversified
+ATCX,Atlas Critical Minerals Corporation Common Stock,NASDAQ,USA,Diversified
+AUGO,Aura Minerals Inc. Common Shares,NASDAQ,USA,Diversified
+B,Barrick Mining Corporation Common Shares,NYSE,USA,Diversified
+BVN,Buenaventura Mining Company Inc.,NYSE,USA,Diversified
+CHNR,"China Natural Resources, Inc. Common Stock",NASDAQ,USA,Diversified
+CRML,Critical Metals Corp. Ordinary Shares,NASDAQ,USA,Diversified
+FNUC,Frontier Nuclear and Minerals Inc. Common Shares,NASDAQ,USA,Diversified
+FSM,Fortuna Mining Corp. Common Shares,NYSE,USA,Diversified
+HYMC,Hycroft Mining Holding Corporation Class A Common Stock,NASDAQ,USA,Diversified
+LZM,Lifezone Metals Limited Ordinary Shares,NYSE,USA,Diversified
+MAKO,Mako Mining Corp Common Stock,NASDAQ,USA,Diversified
+NAMM,Namib Minerals Ordinary Shares,NASDAQ,USA,Diversified
+NEXA,Nexa Resources S.A. Common Shares,NYSE,USA,Diversified
+NEXM,NexMetals Mining Corp. Common Shares,NASDAQ,USA,Diversified
+NICM,Nicola Mining Inc. American Depositary Shares,NASDAQ,USA,Diversified
+PPTA,Perpetua Resources Corp. Common Shares,NASDAQ,USA,Diversified
+SKE,Skeena Resources Limited Common Shares,NYSE,USA,Diversified
+TMC,TMC the metals company Inc. Common Stock,NASDAQ,USA,Diversified
+TMCR,The Metals Royalty Company Inc. Common Stock,NASDAQ,USA,Diversified
+TREO,Tactical Resources Corp. Common Shares,NASDAQ,USA,Diversified
+AGI,Alamos Gold Inc. Class A Common Shares,NYSE,USA,Gold
+AUMN,Golden Minerals,NYSE,USA,Gold
+BGL,Blue Gold Limited Class A Ordinary Shares,NASDAQ,USA,Gold
+CGAU,Centerra Gold Inc. Common Shares,NYSE,USA,Gold
+DRD,DRDGOLD Limited American Depositary Shares,NYSE,USA,Gold
+EGO,Eldorado Gold Corporation Ordinary Shares,NYSE,USA,Gold
+GORO,Gold Resource,NYSE,USA,Gold
+KGC,Kinross Gold Corporation Common Stock,NYSE,USA,Gold
+MUX,McEwen Mining,NYSE,USA,Gold
+NEM,Newmont,NYSE,USA,Gold
+OGG,Osisko Gold Group Inc. Common Shares,NYSE,USA,Gold
+RGLD,Royal Gold,NASDAQ,USA,Gold
+SA,"Seabridge Gold, Inc. Common Shares New",NYSE,USA,Gold
+USAU,U.S. Gold Corp. Common Stock,NASDAQ,USA,Gold
+USGO,U.S. GoldMining Inc. Common stock,NASDAQ,USA,Gold
+VGZ,Vista Gold,NYSE,USA,Gold
+CLF,Cleveland-Cliffs,NYSE,USA,Iron / Steel Ore
+ALB,Albemarle,NYSE,USA,Lithium
+LAR,Lithium Argentina AG Common Shares,NYSE,USA,Lithium
+SGML,Sigma Lithium Corporation Common Shares,NASDAQ,USA,Lithium
+MOS,Mosaic,NYSE,USA,Potash
+MP,MP Materials,NYSE,USA,Rare Earth
+USAR,"USA Rare Earth, Inc. Class A Common Stock",NASDAQ,USA,Rare Earth
+AYA,Aya Gold & Silver Inc. Common Shares,NASDAQ,USA,Silver
+CDE,Coeur Mining,NYSE,USA,Silver
+HL,Hecla Mining,NYSE,USA,Silver
+SCZM,Santacruz Silver Mining Ltd. Common Shares,NASDAQ,USA,Silver
+SSMR,Sunshine Silver Mining & Refining Company Common Stock,NYSE,USA,Silver
+URG,Ur-Energy,NYSE,USA,Uranium
+UUUU,Energy Fuels,NYSE,USA,Uranium

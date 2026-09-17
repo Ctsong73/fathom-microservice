@@ -105,31 +105,89 @@ body {
 }
 
 /* Stock card colors */
-.card-c {
-    border-top-color: #4CAF50;
+.stock-card {
+    border-top-color: rgba(255, 255, 255, 0.2);
 }
 
-.card-xom {
-    border-top-color: #2196F3;
-}
-
-.card-nem {
-    border-top-color: #FF9800;
-}
-
-.badge-c {
-    background: #4CAF50;
+.badge-sector {
+    background: #667eea;
     color: white;
+    white-space: nowrap;
 }
 
-.badge-xom {
-    background: #2196F3;
-    color: white;
+/* ===== STOCK DIRECTORY (index.html) ===== */
+.search-box {
+    max-width: 500px;
+    margin: 0 auto 10px;
 }
 
-.badge-nem {
-    background: #FF9800;
+.search-box input {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
     color: white;
+    font-size: 1rem;
+    outline: none;
+}
+
+.search-box input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.stock-count {
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.sector-group {
+    margin: 30px 0 10px;
+    text-align: left;
+}
+
+.sector-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
+    color: white;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 8px;
+}
+
+.sector-count {
+    background: #667eea;
+    color: white;
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-size: 0.85rem;
+}
+
+.stock-grid-wide {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 15px;
+}
+
+.stock-grid-wide .stock-card {
+    text-align: left;
+}
+
+.stock-fullname {
+    display: block;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.stock-meta {
+    display: block;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    margin-top: 3px;
+    font-weight: 400;
 }
 
 /* ===== NAVIGATION (from base.html) ===== */
