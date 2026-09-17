@@ -11,7 +11,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 STALE_HOURS = int(os.environ.get('FRESH_HOURS', 6))
-REQUEST_DELAY = 0.4  # seconds between symbols to stay under Yahoo rate limits
+REQUEST_DELAY = 0.6  # seconds between symbols to stay under Yahoo rate limits
+VALUATION_RETRIES = 4  # attempts for valuation (Yahoo throttles around boot sync)
 
 
 class StockFetcher:
@@ -113,18 +114,23 @@ class StockFetcher:
             except (TypeError, ValueError):
                 return None
 
-        # Retry once: Yahoo's valuation endpoint is flaky right after cold start.
-        for attempt in range(2):
+        # Yahoo throttles the valuation endpoint right after boot sync, so
+        # back off a little between attempts instead of giving up instantly.
+        for attempt in range(VALUATION_RETRIES):
             try:
                 info = yf.Ticker(symbol).info or {}
             except Exception as e:
-                logger.warning(f"Valuation failed for {symbol}: {e}")
+                logger.warning(f"Valuation failed for {symbol} (try {attempt + 1}): {e}")
+                if attempt < VALUATION_RETRIES - 1:
+                    time.sleep(2)
                 continue
             pe = num(info.get('trailingPE') or info.get('forwardPE'))
             pb = num(info.get('priceToBook'))
             ps = num(info.get('priceToSalesTrailing12Months'))
             if pe is not None or pb is not None or ps is not None:
                 return {'pe': pe, 'pb': pb, 'ps': ps}
+            if attempt < VALUATION_RETRIES - 1:
+                time.sleep(2)
         logger.warning(f"Valuation unavailable for {symbol}")
         return {'pe': None, 'pb': None, 'ps': None}
 
