@@ -105,21 +105,28 @@ class StockFetcher:
 
     def get_valuation(self, symbol):
         """Pull P/E, P/B and P/S ratios from Yahoo. Falls back to nulls."""
-        try:
-            # yfinance 1.2 requires its own curl_cffi session; don't pass ours.
-            info = yf.Ticker(symbol).info or {}
-        except Exception as e:
-            logger.warning(f"Valuation failed for {symbol}: {e}")
-            return {'pe': None, 'pb': None, 'ps': None}
-
-        def num(v):
+        # yfinance 1.2 requires its own curl_cffi session; don't pass ours.
+        for attempt in range(2):
             try:
-                v = float(v)
-                return round(v, 2) if v == v else None  # drop NaN
-            except (TypeError, ValueError):
-                return None
+                info = yf.Ticker(symbol).info or {}
+            except Exception as e:
+                error = str(e)
+                if attempt == 0:
+                    continue
+                return {'pe': None, 'pb': None, 'ps': None, 'error': error}
 
-        pe = num(info.get('trailingPE') or info.get('forwardPE'))
-        pb = num(info.get('priceToBook'))
-        ps = num(info.get('priceToSalesTrailing12Months'))
-        return {'pe': pe, 'pb': pb, 'ps': ps}
+            def num(v):
+                try:
+                    v = float(v)
+                    return round(v, 2) if v == v else None  # drop NaN
+                except (TypeError, ValueError):
+                    return None
+
+            pe = num(info.get('trailingPE') or info.get('forwardPE'))
+            pb = num(info.get('priceToBook'))
+            ps = num(info.get('priceToSalesTrailing12Months'))
+            if pe is None and pb is None and ps is None:
+                error = f"no valuation fields in info ({len(info)} keys)"
+                continue
+            return {'pe': pe, 'pb': pb, 'ps': ps}
+        return {'pe': None, 'pb': None, 'ps': None, 'error': error}
