@@ -106,27 +106,24 @@ class StockFetcher:
     def get_valuation(self, symbol):
         """Pull P/E, P/B and P/S ratios from Yahoo. Falls back to nulls."""
         # yfinance 1.2 requires its own curl_cffi session; don't pass ours.
+        def num(v):
+            try:
+                v = float(v)
+                return round(v, 2) if v == v else None  # drop NaN
+            except (TypeError, ValueError):
+                return None
+
+        # Retry once: Yahoo's valuation endpoint is flaky right after cold start.
         for attempt in range(2):
             try:
                 info = yf.Ticker(symbol).info or {}
             except Exception as e:
-                error = str(e)
-                if attempt == 0:
-                    continue
-                return {'pe': None, 'pb': None, 'ps': None, 'error': error}
-
-            def num(v):
-                try:
-                    v = float(v)
-                    return round(v, 2) if v == v else None  # drop NaN
-                except (TypeError, ValueError):
-                    return None
-
+                logger.warning(f"Valuation failed for {symbol}: {e}")
+                continue
             pe = num(info.get('trailingPE') or info.get('forwardPE'))
             pb = num(info.get('priceToBook'))
             ps = num(info.get('priceToSalesTrailing12Months'))
-            if pe is None and pb is None and ps is None:
-                error = f"no valuation fields in info ({len(info)} keys)"
-                continue
-            return {'pe': pe, 'pb': pb, 'ps': ps}
-        return {'pe': None, 'pb': None, 'ps': None, 'error': error}
+            if pe is not None or pb is not None or ps is not None:
+                return {'pe': pe, 'pb': pb, 'ps': ps}
+        logger.warning(f"Valuation unavailable for {symbol}")
+        return {'pe': None, 'pb': None, 'ps': None}
