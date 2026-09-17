@@ -127,3 +127,20 @@ class StockFetcher:
                 return {'pe': pe, 'pb': pb, 'ps': ps}
         logger.warning(f"Valuation unavailable for {symbol}")
         return {'pe': None, 'pb': None, 'ps': None}
+
+    def debug_valuation(self, symbol):
+        """Diagnose what Yahoo actually returns for valuation (debug only)."""
+        out = {'symbol': symbol}
+        try:
+            t = yf.Ticker(symbol)
+            out['has_get_info'] = hasattr(t, 'get_info')
+            info = yf.Ticker(symbol).info or {}
+            out['info'] = info
+        except Exception as e:
+            out['exception'] = repr(e)
+            return out
+        keys = ('trailingPE', 'forwardPE', 'priceToBook',
+                'priceToSalesTrailing12Months')
+        out['values'] = {k: info.get(k) for k in keys}
+        out['key_count'] = len(info)
+        return out

@@ -119,6 +119,12 @@ def health():
     })
 
 
+@app.route('/debug/valuation/<symbol>')
+def debug_valuation(symbol):
+    """Diagnose what Yahoo returns for valuation of one symbol (debug only)."""
+    return jsonify(fetcher.debug_valuation(symbol))
+
+
 @app.route('/debug/db/<symbol>')
 def debug_db(symbol):
     """View raw price data in DB for debugging."""
@@ -164,7 +170,7 @@ def debug_universe():
 
 
 if __name__ == '__main__':
-    print(f"Fathom Microservice starting - {len(universe)} mining stocks")
+    print(f"fathom Microservice starting - {len(universe)} mining stocks")
 
     db.sync_universe(universe)
 
