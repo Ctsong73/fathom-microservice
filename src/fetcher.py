@@ -118,7 +118,7 @@ class StockFetcher:
         return results
 
     def _market_cap_one(self, symbol):
-        cap = yf.Ticker(symbol).fast_info.get('market_cap')
+        cap = yf.Ticker(symbol).fast_info['market_cap']
         if cap:
             self.db.set_market_cap(symbol, float(cap))
             return float(cap)
