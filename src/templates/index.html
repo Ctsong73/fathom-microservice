@@ -4,15 +4,12 @@
 
 {% block content %}
 <div class="home-container">
-    <h1 class="home-title">🌊 Fathom</h1>
-    <p class="home-subtitle">Mining Stocks — US & Canada</p>
+    <p class="home-subtitle">Mining Stocks Microservice - US & Canada</p>
 
     <div class="search-box">
         <input type="text" id="stockSearch" placeholder="Search by symbol or name…"
                autocomplete="off">
     </div>
-
-    <div class="stock-count" id="stockCount"></div>
 
     <div id="stockDirectory">
         {% for sector, group in stocks|groupby('sector') %}
@@ -40,37 +37,20 @@
 
 <script>
     const searchInput = document.getElementById('stockSearch');
-    const stockCount = document.getElementById('stockCount');
     const cards = Array.from(document.querySelectorAll('#stockDirectory .stock-card'));
     const groups = Array.from(document.querySelectorAll('.sector-group'));
-    const total = cards.length;
-
-    function updateCount() {
-        const visible = cards.filter(c => c.style.display !== 'none').length;
-        stockCount.textContent = visible === total
-            ? `${total} stocks`
-            : `${visible} / ${total} stocks`;
-    }
 
     searchInput.addEventListener('input', () => {
         const q = (searchInput.value || '').trim().toLowerCase();
-        let anyVisible = false;
         cards.forEach(card => {
             const text = card.textContent.toLowerCase();
-            const show = !q || text.includes(q);
-            card.style.display = show ? '' : 'none';
-            if (show) anyVisible = true;
+            card.style.display = !q || text.includes(q) ? '' : 'none';
         });
         groups.forEach(g => {
-            g.style.display = Array.from(g.querySelectorAll('.stock-card'))
-                .some(c => c.style.display !== 'none') ? '' : 'none';
+            const visible = Array.from(g.querySelectorAll('.stock-card'))
+                .some(c => c.style.display !== 'none');
+            g.style.display = visible ? '' : 'none';
         });
-        if (!q) {
-            groups.forEach(g => g.style.display = '');
-        }
-        updateCount();
     });
-
-    updateCount();
 </script>
 {% endblock %}
